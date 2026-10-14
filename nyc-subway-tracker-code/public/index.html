@@ -1,0 +1,211 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>NYC Subway Tracker</title>
+<style>
+  :root { --bg:#0f1115; --card:#1a1e26; --text:#f2f4f8; --muted:#9aa3b2; --accent:#f5c518; --green:#2fbf71; --amber:#f0a030; --red:#e05252; }
+  * { box-sizing:border-box; }
+  body { margin:0; font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif; background:var(--bg); color:var(--text); }
+  header { padding:18px 16px 10px; position:sticky; top:0; background:var(--bg); z-index:5; }
+  h1 { margin:0 0 4px; font-size:22px; }
+  .sub { color:var(--muted); font-size:13px; }
+  main { padding:6px 16px 40px; max-width:640px; margin:0 auto; }
+  .row { display:flex; gap:8px; margin:12px 0; }
+  input[type=text] { flex:1; padding:12px; border-radius:10px; border:1px solid #2c3340; background:var(--card); color:var(--text); font-size:16px; }
+  button { padding:12px 14px; border-radius:10px; border:0; background:#2c6bed; color:#fff; font-size:15px; cursor:pointer; }
+  button.ghost { background:#232936; color:var(--text); }
+  button:disabled { opacity:.5; cursor:default; }
+  .card { background:var(--card); border-radius:12px; padding:14px; margin:10px 0; }
+  .station { display:flex; align-items:center; gap:10px; cursor:pointer; }
+  .station:hover { background:#202633; }
+  .station .name { font-weight:600; }
+  .station .dist { margin-left:auto; color:var(--muted); font-size:13px; white-space:nowrap; }
+  .bullets { display:flex; gap:4px; flex-wrap:wrap; margin-top:6px; }
+  .bullet { width:26px; height:26px; border-radius:50%; display:inline-flex; align-items:center; justify-content:center; font-weight:700; font-size:13px; color:#fff; text-shadow:0 1px 2px rgba(0,0,0,.4); }
+  .arrival { display:flex; align-items:center; gap:12px; padding:12px 0; border-top:1px solid #262c38; }
+  .arrival:first-of-type { border-top:0; }
+  .count { font-size:20px; font-weight:700; min-width:74px; text-align:right; }
+  .dest { flex:1; min-width:0; }
+  .dest .where { font-weight:600; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; }
+  .dest .dir { color:var(--muted); font-size:12px; }
+  .pill { font-size:11px; font-weight:700; padding:3px 8px; border-radius:20px; white-space:nowrap; }
+  .pill.on { background:rgba(47,191,113,.15); color:var(--green); }
+  .pill.late { background:rgba(240,160,48,.15); color:var(--amber); }
+  .meta { color:var(--muted); font-size:12px; margin:8px 0; display:flex; justify-content:space-between; align-items:center; }
+  .state { text-align:center; color:var(--muted); padding:36px 10px; }
+  .err { color:var(--red); }
+  .hidden { display:none; }
+  a.back { color:#7aa7ff; cursor:pointer; font-size:14px; }
+</style>
+</head>
+<body>
+<header>
+  <h1>🚇 NYC Subway Tracker</h1>
+  <div class="sub">Live MTA arrivals — no API key needed</div>
+</header>
+<main>
+  <!-- home view -->
+  <div id="home">
+    <div class="row">
+      <button id="locBtn" style="flex:1">📍 Use my location — 3 nearest stations</button>
+    </div>
+    <div class="row">
+      <input type="text" id="search" placeholder="Or search all stations… (e.g. Times Sq)" autocomplete="off">
+    </div>
+    <div id="locMsg" class="sub"></div>
+    <div id="stationList"></div>
+  </div>
+
+  <!-- arrivals view -->
+  <div id="board" class="hidden">
+    <a class="back" id="backBtn">← All stations</a>
+    <div class="card">
+      <div class="station" style="cursor:default">
+        <div>
+          <div class="name" id="stName" style="font-size:18px"></div>
+          <div class="bullets" id="stBullets"></div>
+        </div>
+      </div>
+      <div class="meta">
+        <span id="feedTime"></span>
+        <button class="ghost" id="refreshBtn" style="padding:8px 12px">↻ Refresh</button>
+      </div>
+      <div id="arrivals"></div>
+    </div>
+  </div>
+</main>
+
+<script>
+const $ = (id) => document.getElementById(id);
+let stations = [], routes = {}, currentStation = null, timer = null;
+
+async function init() {
+  const [stRes, rRes] = await Promise.all([fetch("/api/stations"), fetch("/api/routes")]);
+  stations = await stRes.json();
+  routes = await rRes.json();
+  renderList(stations.slice(0, 20), "Start typing to search 496 stations, or use your location above.");
+  $("search").addEventListener("input", (e) => {
+    const q = e.target.value.trim().toLowerCase();
+    if (!q) return renderList(stations.slice(0, 20), "Start typing to search 496 stations, or use your location above.");
+    renderList(stations.filter((s) => s.name.toLowerCase().includes(q)).slice(0, 50),
+      q ? `No stations match "${e.target.value}".` : "");
+  });
+  $("locBtn").addEventListener("click", useLocation);
+  $("backBtn").addEventListener("click", showHome);
+  $("refreshBtn").addEventListener("click", () => loadArrivals(true));
+}
+
+function bulletsHTML(lines) {
+  return lines.map((l) => {
+    const r = routes[l] || {};
+    const bg = r.color ? "#" + r.color : "#555";
+    return `<span class="bullet" style="background:${bg}" title="${r.longName || l}">${r.shortName || l}</span>`;
+  }).join("");
+}
+
+function renderList(list, emptyMsg) {
+  const el = $("stationList");
+  if (!list.length) { el.innerHTML = `<div class="state">${emptyMsg}</div>`; return; }
+  el.innerHTML = list.map((s) =>
+    `<div class="card station" data-id="${s.id}">
+       <div><div class="name">${s.name}</div><div class="bullets">${bulletsHTML(s.lines)}</div></div>
+       ${s._dist != null ? `<span class="dist">${s._dist < 1 ? Math.round(s._dist * 5280) + " ft" : s._dist.toFixed(1) + " mi"}</span>` : ""}
+     </div>`).join("");
+  el.querySelectorAll(".station").forEach((c) =>
+    c.addEventListener("click", () => openStation(c.dataset.id)));
+}
+
+function haversine(a, b, c, d) {
+  const R = 3958.8, t = Math.PI / 180;
+  const h = Math.sin((c - a) * t / 2) ** 2 + Math.cos(a * t) * Math.cos(c * t) * Math.sin((d - b) * t / 2) ** 2;
+  return 2 * R * Math.asin(Math.sqrt(h));
+}
+
+function useLocation() {
+  const msg = $("locMsg");
+  if (!navigator.geolocation) { msg.textContent = "Geolocation isn't supported in this browser — use search instead."; return; }
+  msg.textContent = "Locating…";
+  $("locBtn").disabled = true;
+  navigator.geolocation.getCurrentPosition(
+    (pos) => {
+      $("locBtn").disabled = false;
+      const { latitude: la, longitude: lo } = pos.coords;
+      const near = stations
+        .map((s) => ({ ...s, _dist: haversine(la, lo, s.lat, s.lon) }))
+        .sort((a, b) => a._dist - b._dist)
+        .slice(0, 3);
+      msg.textContent = "";
+      renderList(near, "");
+    },
+    (err) => {
+      $("locBtn").disabled = false;
+      msg.textContent = err.code === 1
+        ? "Location permission was denied — use the search box instead."
+        : "Couldn't get your location (timed out or unavailable) — use the search box instead.";
+    },
+    { timeout: 10000 }
+  );
+}
+
+function showHome() {
+  clearInterval(timer);
+  $("board").classList.add("hidden");
+  $("home").classList.remove("hidden");
+}
+
+async function openStation(id) {
+  currentStation = stations.find((s) => s.id === id);
+  $("home").classList.add("hidden");
+  $("board").classList.remove("hidden");
+  $("stName").textContent = currentStation.name;
+  $("stBullets").innerHTML = bulletsHTML(currentStation.lines);
+  await loadArrivals(false);
+  clearInterval(timer);
+  timer = setInterval(() => loadArrivals(false), 30000);
+}
+
+function fmtCountdown(secs) {
+  if (secs < 45) return "Arriving";
+  const m = Math.round(secs / 60);
+  return m <= 1 ? "1 min" : `${m} min`;
+}
+
+async function loadArrivals(manual) {
+  const box = $("arrivals");
+  if (manual) box.innerHTML = `<div class="state">Refreshing…</div>`;
+  else if (!box.dataset.loaded) box.innerHTML = `<div class="state">Loading live arrivals…</div>`;
+  try {
+    const res = await fetch(`/api/station/${currentStation.id}/arrivals`);
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error || "Request failed");
+    box.dataset.loaded = "1";
+    $("feedTime").textContent = data.feedTime
+      ? "Data as of " + new Date(data.feedTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
+      : "Feed timestamp unavailable";
+    if (!data.arrivals.length) {
+      box.innerHTML = `<div class="state">No upcoming arrivals reported for this station right now.</div>`;
+      return;
+    }
+    box.innerHTML = data.arrivals.map((a) => {
+      const r = routes[a.routeId] || {};
+      const bg = r.color ? "#" + r.color : "#555";
+      const pill = a.status === "Delayed" ? `<span class="pill late">Delayed</span>`
+        : a.status === "On time" ? `<span class="pill on">On time</span>` : "";
+      return `<div class="arrival">
+        <span class="bullet" style="background:${bg};width:32px;height:32px;font-size:15px">${r.shortName || a.routeId}</span>
+        <div class="dest"><div class="where">${a.destination || "—"}</div>
+        <div class="dir">${a.direction || ""} ${pill}</div></div>
+        <div class="count">${fmtCountdown(a.inSeconds)}</div>
+      </div>`;
+    }).join("");
+  } catch (e) {
+    box.innerHTML = `<div class="state err">Couldn't load arrivals: ${e.message}</div>`;
+  }
+}
+
+init();
+</script>
+</body>
+</html>

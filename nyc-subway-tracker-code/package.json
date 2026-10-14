@@ -1,0 +1,1 @@
+{"dependencies":{"cors":"^2.8.5","express":"^4.21.2","gtfs-realtime-bindings":"^2.2.0"},"description":"Live NYC subway arrivals from MTA GTFS-RT feeds. No API key required.","engines":{"node":">=22"},"license":"MIT","main":"server.js","name":"nyc-subway-tracker","scripts":{"build-db":"python3 scripts/build-db.py","start":"node server.js"},"version":"1.0.0"}
