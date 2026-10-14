@@ -17,6 +17,18 @@ BASE = os.path.join(os.path.dirname(__file__), "..")
 DATA = os.path.join(BASE, "data")
 ZIP_PATH = os.path.join(DATA, "gtfs.zip")
 DB_PATH = os.path.join(DATA, "transit.db")
+GTFS_URL = "http://web.mta.info/developers/data/nyct/subway/google_transit.zip"
+
+
+def ensure_gtfs() -> None:
+    """Download the MTA static GTFS bundle if it isn't already present."""
+    if os.path.exists(ZIP_PATH):
+        return
+    print(f"Downloading MTA GTFS bundle (~5 MB) from {GTFS_URL} ...")
+    import urllib.request
+
+    urllib.request.urlretrieve(GTFS_URL, ZIP_PATH)
+    print("Download complete.")
 
 
 def parse_secs(t: str) -> int:
@@ -25,8 +37,7 @@ def parse_secs(t: str) -> int:
 
 
 def main() -> None:
-    if not os.path.exists(ZIP_PATH):
-        sys.exit(f"Missing {ZIP_PATH}. Download the MTA GTFS first (see README).")
+    ensure_gtfs()
 
     with zipfile.ZipFile(ZIP_PATH) as z:
         stops = list(csv.DictReader(z.open("stops.txt").read().decode("utf-8").splitlines()))
