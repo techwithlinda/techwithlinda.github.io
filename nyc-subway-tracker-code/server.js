@@ -23,11 +23,13 @@ const FEED_TTL_MS = 20_000; // MTA refreshes roughly every 30s; cache 20s
 const DELAY_THRESHOLD_SECS = 120; // >2 min late counts as "Delayed"
 const MAX_ARRIVALS = 12;
 
-// route_id -> realtime feed name (MTA groups several lines per feed)
+// route_id -> realtime feed name (MTA groups several lines per feed).
+// NOTE (2026-10-14): the standalone "gtfs-7" feed was retired; the 7 line
+// now rides in the base "gtfs" feed. Verified live against the MTA endpoint.
 const FEED_FOR_ROUTE = {
   1: "gtfs", 2: "gtfs", 3: "gtfs", 4: "gtfs", 5: "gtfs", 6: "gtfs", "6X": "gtfs",
+  7: "gtfs", "7X": "gtfs",
   GS: "gtfs", FS: "gtfs", H: "gtfs",
-  7: "gtfs-7", "7X": "gtfs-7",
   A: "gtfs-ace", C: "gtfs-ace", E: "gtfs-ace",
   B: "gtfs-bdfm", D: "gtfs-bdfm", F: "gtfs-bdfm", FX: "gtfs-bdfm", M: "gtfs-bdfm",
   J: "gtfs-jz", Z: "gtfs-jz",
@@ -39,6 +41,11 @@ const FEED_FOR_ROUTE = {
 
 const db = new DatabaseSync(DB_PATH);
 const app = express();
+// never let browsers/proxies cache API responses (stale 304s masked empty data)
+app.use("/api", (req, res, next) => {
+  res.set("Cache-Control", "no-store");
+  next();
+});
 app.use(express.static(path.join(__dirname, "public")));
 
 // ---- timezone helpers (schedule times are in America/New_York) ----
@@ -63,12 +70,17 @@ const feedCache = new Map(); // feedName -> {at, feed}
 async function getFeed(feedName) {
   const hit = feedCache.get(feedName);
   if (hit && Date.now() - hit.at < FEED_TTL_MS) return hit.feed;
-  const res = await fetch(FEED_BASE + feedName, { signal: AbortSignal.timeout(15000) });
-  if (!res.ok) throw new Error(`MTA feed ${feedName} returned HTTP ${res.status}`);
-  const buf = Buffer.from(await res.arrayBuffer());
-  const feed = GtfsRealtime.transit_realtime.FeedMessage.decode(buf);
-  feedCache.set(feedName, { at: Date.now(), feed });
-  return feed;
+  try {
+    const res = await fetch(FEED_BASE + feedName, { signal: AbortSignal.timeout(15000) });
+    if (!res.ok) throw new Error(`MTA feed ${feedName} returned HTTP ${res.status}`);
+    const buf = Buffer.from(await res.arrayBuffer());
+    const feed = GtfsRealtime.transit_realtime.FeedMessage.decode(buf);
+    feedCache.set(feedName, { at: Date.now(), feed });
+    return feed;
+  } catch (err) {
+    console.error(`MTA feed ${feedName} failed: ${err.message}`);
+    throw err;
+  }
 }
 const toMs = (t) => (t == null ? null : Number(t) * 1000); // protobuf int64 -> ms
 
@@ -103,9 +115,19 @@ app.get("/api/station/:id/arrivals", async (req, res) => {
     }
 
     const now = Date.now();
-    const feedResults = await Promise.allSettled(feeds.map(getFeed));
+    // fetch each feed independently so one failure doesn't sink the others,
+    // and keep the per-feed error for the response + logs
+    const feedResults = await Promise.all(
+      feeds.map((f) =>
+        getFeed(f).then(
+          (feed) => ({ ok: true, feedName: f, feed }),
+          (err) => ({ ok: false, feedName: f, error: err.message })
+        )
+      )
+    );
     let feedTime = null;
     const arrivals = [];
+    const feedErrors = [];
 
     // prepared once per request (node:sqlite prepares are cheap, but no need to redo them per row)
     const qDestExact = db.prepare("SELECT destination FROM destinations WHERE trip_suffix = ?");
@@ -121,8 +143,11 @@ app.get("/api/station/:id/arrivals", async (req, res) => {
     };
 
     for (const r of feedResults) {
-      if (r.status !== "fulfilled") continue;
-      const feed = r.value;
+      if (!r.ok) {
+        feedErrors.push(`${r.feedName}: ${r.error}`);
+        continue;
+      }
+      const feed = r.feed;
       const ts = toMs(feed.header.timestamp);
       if (ts && (!feedTime || ts > feedTime)) feedTime = ts;
 
@@ -186,6 +211,7 @@ app.get("/api/station/:id/arrivals", async (req, res) => {
       feedTime,
       arrivals: arrivals.slice(0, MAX_ARRIVALS),
       feedsQueried: feeds,
+      feedErrors,
     });
   } catch (err) {
     console.error("arrivals error:", err.message);

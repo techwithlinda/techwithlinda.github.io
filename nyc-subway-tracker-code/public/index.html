@@ -87,7 +87,7 @@
 const $ = (id) => document.getElementById(id);
 let stations = [], routes = {}, currentStation = null, timer = null;
 const API_BASE = (window.API_BASE || "").replace(/\/$/, "");
-const api = (p) => fetch(API_BASE + p);
+const api = (p) => fetch(API_BASE + p, { cache: "no-store" });
 
 async function init() {
   try {
@@ -202,7 +202,10 @@ async function loadArrivals(manual) {
       ? "Data as of " + new Date(data.feedTime).toLocaleTimeString([], { hour: "numeric", minute: "2-digit", second: "2-digit" })
       : "Feed timestamp unavailable";
     if (!data.arrivals.length) {
-      box.innerHTML = `<div class="state">No upcoming arrivals reported for this station right now.</div>`;
+      const why = (data.feedErrors && data.feedErrors.length)
+        ? `<br><span class="err">MTA feed issue: ${data.feedErrors.join("; ")}</span>`
+        : "";
+      box.innerHTML = `<div class="state">No upcoming arrivals reported for this station right now.${why}</div>`;
       return;
     }
     box.innerHTML = data.arrivals.map((a) => {
