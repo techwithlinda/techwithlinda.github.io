@@ -23,6 +23,31 @@ npm start          # serves http://localhost:3000
 on-time/delayed computation. Re-run it every few months to pick up MTA
 schedule changes.
 
+## Deploy it
+
+**GitHub Pages alone will not work** — it only serves static files and cannot
+run the Node server, so the `/api/*` requests return 404 (that's the console
+error you saw). You need a host that runs Node. Easiest path:
+
+1. Push this repo to GitHub (done).
+2. Go to [render.com](https://render.com), sign up, and create a **Web
+   Service** from your repo. Render reads `render.yaml` automatically:
+   build command `npm install && npm run build-db`, start command
+   `npm start`.
+3. Open the URL Render gives you (e.g.
+   `https://nyc-subway-tracker.onrender.com`) — the app runs there, frontend
+   included. No API key needed.
+
+Notes:
+
+- On Render's free tier the service sleeps after inactivity; the first load
+  after a nap takes ~30–60 seconds to wake up.
+- If you prefer to keep the page on GitHub Pages and only host the server on
+  Render: in `public/index.html`, uncomment the `window.API_BASE` line near
+  the bottom and set it to your Render URL, then redeploy the page.
+- To run on your own computer instead: `npm install && npm start`, then open
+  http://localhost:3000.
+
 ## How it works
 
 - `server.js` — Express server. `GET /api/stations` serves the station

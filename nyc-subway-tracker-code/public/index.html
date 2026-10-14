@@ -78,13 +78,30 @@
 </main>
 
 <script>
+// If the page and the API server live on different hosts (e.g. this page on
+// GitHub Pages and the server on Render), uncomment the next line and put
+// your server's URL in it:
+// window.API_BASE = "https://your-server.onrender.com";
+</script>
+<script>
 const $ = (id) => document.getElementById(id);
 let stations = [], routes = {}, currentStation = null, timer = null;
+const API_BASE = (window.API_BASE || "").replace(/\/$/, "");
+const api = (p) => fetch(API_BASE + p);
 
 async function init() {
-  const [stRes, rRes] = await Promise.all([fetch("/api/stations"), fetch("/api/routes")]);
-  stations = await stRes.json();
-  routes = await rRes.json();
+  try {
+    const [stRes, rRes] = await Promise.all([api("/api/stations"), api("/api/routes")]);
+    if (!stRes.ok || !rRes.ok) throw new Error("HTTP " + stRes.status + " / " + rRes.status);
+    stations = await stRes.json();
+    routes = await rRes.json();
+  } catch (e) {
+    $("stationList").innerHTML = `<div class="state err">Can't reach the tracker server.<br><br>
+      This page needs its Node server running: on your computer run
+      <b>npm install</b> then <b>npm start</b> and open <b>http://localhost:3000</b> —
+      or deploy the server (see README) and set <b>window.API_BASE</b> to its URL.</div>`;
+    return;
+  }
   renderList(stations.slice(0, 20), "Start typing to search 496 stations, or use your location above.");
   $("search").addEventListener("input", (e) => {
     const q = e.target.value.trim().toLowerCase();
@@ -177,7 +194,7 @@ async function loadArrivals(manual) {
   if (manual) box.innerHTML = `<div class="state">Refreshing…</div>`;
   else if (!box.dataset.loaded) box.innerHTML = `<div class="state">Loading live arrivals…</div>`;
   try {
-    const res = await fetch(`/api/station/${currentStation.id}/arrivals`);
+    const res = await api(`/api/station/${currentStation.id}/arrivals`);
     const data = await res.json();
     if (!res.ok) throw new Error(data.error || "Request failed");
     box.dataset.loaded = "1";

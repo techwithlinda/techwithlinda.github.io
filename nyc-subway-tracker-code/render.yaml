@@ -1,0 +1,9 @@
+# One-click deploy for Render (https://render.com).
+# Connect your GitHub repo in the Render dashboard and it will pick this up:
+# installs deps, builds the station database, then starts the server.
+services:
+  - type: web
+    name: nyc-subway-tracker
+    runtime: node
+    buildCommand: npm install && npm run build-db
+    startCommand: npm start
