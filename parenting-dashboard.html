@@ -1,0 +1,968 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>SuperParenting Dashboard</title>
+
+  <style>
+    :root {
+      --bg: #f5f7fb;
+      --panel: #ffffff;
+      --text: #172033;
+      --muted: #6b7280;
+      --border: #e2e8f0;
+      --primary: #4f46e5;
+      --primary-hover: #4338ca;
+      --header: #111827;
+      --shadow: 0 8px 28px rgba(15, 23, 42, 0.09);
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    body {
+      margin: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI",
+        Roboto, Arial, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+    }
+
+    button,
+    input {
+      font: inherit;
+    }
+
+    button {
+      cursor: pointer;
+    }
+
+    .topbar {
+      position: sticky;
+      top: 0;
+      z-index: 1000;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      flex-wrap: wrap;
+      padding: 16px 24px;
+      background: var(--header);
+      color: white;
+      box-shadow: 0 3px 12px rgba(0, 0, 0, 0.12);
+    }
+
+    .brand {
+      font-size: 21px;
+      font-weight: 800;
+      letter-spacing: -0.5px;
+    }
+
+    .brand span {
+      color: #a5b4fc;
+    }
+
+    .topbar-subtitle {
+      margin-top: 4px;
+      color: #cbd5e1;
+      font-size: 12px;
+    }
+
+    .topbar-actions {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+    }
+
+    .button {
+      padding: 9px 13px;
+      border: 1px solid transparent;
+      border-radius: 9px;
+      background: var(--primary);
+      color: white;
+      font-size: 13px;
+      font-weight: 650;
+    }
+
+    .button:hover {
+      background: var(--primary-hover);
+    }
+
+    .button.secondary {
+      background: #273449;
+      border-color: #475569;
+    }
+
+    .button.secondary:hover {
+      background: #34445e;
+    }
+
+    .button.light {
+      background: white;
+      color: var(--text);
+      border-color: var(--border);
+    }
+
+    .button.light:hover {
+      background: #f1f5f9;
+    }
+
+    .toolbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      flex-wrap: wrap;
+      padding: 16px 24px;
+    }
+
+    .toolbar h1 {
+      margin: 0;
+      font-size: 19px;
+    }
+
+    .toolbar p {
+      margin: 5px 0 0;
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .widget-count {
+      color: var(--muted);
+      font-size: 13px;
+    }
+
+    .dashboard {
+      position: relative;
+      min-height: 850px;
+      margin: 0 16px 24px;
+      border: 1px dashed #cbd5e1;
+      border-radius: 14px;
+      background-color: #eef2f8;
+      background-image: radial-gradient(#cbd5e1 0.8px, transparent 0.8px);
+      background-size: 18px 18px;
+      overflow: hidden;
+    }
+
+    .widget {
+      position: absolute;
+      display: flex;
+      flex-direction: column;
+      min-width: 290px;
+      min-height: 220px;
+      width: 620px;
+      height: 460px;
+      overflow: hidden;
+      resize: both;
+      border: 1px solid #dbe2ea;
+      border-radius: 12px;
+      background: var(--panel);
+      box-shadow: var(--shadow);
+    }
+
+    .widget-header {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      min-height: 48px;
+      padding: 9px 11px 9px 15px;
+      background: #ffffff;
+      border-bottom: 1px solid var(--border);
+      cursor: grab;
+      user-select: none;
+      touch-action: none;
+    }
+
+    .widget-header:active {
+      cursor: grabbing;
+    }
+
+    .widget-title-wrap {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      min-width: 0;
+    }
+
+    .widget-dot {
+      flex: 0 0 auto;
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: #818cf8;
+    }
+
+    .widget-title {
+      overflow: hidden;
+      font-size: 13px;
+      font-weight: 750;
+      text-overflow: ellipsis;
+      white-space: nowrap;
+    }
+
+    .widget-actions {
+      display: flex;
+      flex: 0 0 auto;
+      align-items: center;
+      gap: 5px;
+    }
+
+    .icon-button {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      min-width: 30px;
+      height: 29px;
+      padding: 0 8px;
+      border: 1px solid var(--border);
+      border-radius: 7px;
+      background: white;
+      color: #475569;
+      font-size: 12px;
+    }
+
+    .icon-button:hover {
+      background: #f1f5f9;
+    }
+
+    .icon-button.remove:hover {
+      background: #fee2e2;
+      color: #b91c1c;
+    }
+
+    .widget iframe {
+      display: block;
+      flex: 1;
+      width: 100%;
+      height: 100%;
+      min-height: 0;
+      border: 0;
+      background: white;
+    }
+
+    .widget-footer {
+      padding: 7px 11px;
+      border-top: 1px solid var(--border);
+      background: #fafafa;
+      color: var(--muted);
+      font-size: 11px;
+    }
+
+    .empty-state {
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      width: min(380px, 90%);
+      padding: 24px;
+      border: 1px solid var(--border);
+      border-radius: 14px;
+      background: white;
+      text-align: center;
+      transform: translate(-50%, -50%);
+      box-shadow: var(--shadow);
+    }
+
+    .empty-state h2 {
+      margin: 0 0 8px;
+      font-size: 18px;
+    }
+
+    .empty-state p {
+      margin: 0;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.6;
+    }
+
+    .modal-backdrop {
+      position: fixed;
+      inset: 0;
+      z-index: 2000;
+      display: none;
+      align-items: center;
+      justify-content: center;
+      padding: 18px;
+      background: rgba(15, 23, 42, 0.55);
+    }
+
+    .modal-backdrop.open {
+      display: flex;
+    }
+
+    .modal {
+      width: min(440px, 100%);
+      padding: 24px;
+      border-radius: 16px;
+      background: white;
+      box-shadow: 0 20px 60px rgba(0, 0, 0, 0.2);
+    }
+
+    .modal h2 {
+      margin: 0 0 7px;
+      font-size: 20px;
+    }
+
+    .modal-description {
+      margin: 0 0 20px;
+      color: var(--muted);
+      font-size: 13px;
+      line-height: 1.5;
+    }
+
+    .form-field {
+      margin-bottom: 15px;
+    }
+
+    .form-field label {
+      display: block;
+      margin-bottom: 6px;
+      font-size: 13px;
+      font-weight: 700;
+    }
+
+    .form-field input {
+      width: 100%;
+      padding: 11px 12px;
+      border: 1px solid #cbd5e1;
+      border-radius: 8px;
+      outline: none;
+    }
+
+    .form-field input:focus {
+      border-color: var(--primary);
+      box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.12);
+    }
+
+    .form-error {
+      display: none;
+      margin-bottom: 12px;
+      color: #b91c1c;
+      font-size: 12px;
+    }
+
+    .modal-actions {
+      display: flex;
+      justify-content: flex-end;
+      gap: 8px;
+      margin-top: 20px;
+    }
+
+    .page-footer {
+      padding: 0 24px 24px;
+      color: var(--muted);
+      font-size: 12px;
+      line-height: 1.6;
+    }
+
+    @media (max-width: 650px) {
+      .topbar {
+        padding: 14px;
+      }
+
+      .toolbar {
+        padding: 14px;
+      }
+
+      .dashboard {
+        margin: 0 8px 16px;
+        min-height: 700px;
+      }
+
+      .widget {
+        min-width: 270px;
+      }
+
+      .page-footer {
+        padding: 0 14px 20px;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <header class="topbar">
+    <div>
+      <div class="brand">Super<span>Parenting</span></div>
+      <div class="topbar-subtitle">
+        Your family tools, learning apps, and resources in one place
+      </div>
+    </div>
+
+    <div class="topbar-actions">
+      <button class="button" id="addAppButton">+ Add app</button>
+      <button class="button secondary" id="saveButton">Save layout</button>
+      <button class="button secondary" id="resetButton">Reset layout</button>
+    </div>
+  </header>
+
+  <section class="toolbar">
+    <div>
+      <h1>My dashboard</h1>
+      <p>Drag a widget by its header. Resize it from its bottom-right corner.</p>
+    </div>
+    <div class="widget-count" id="widgetCount">Loading apps…</div>
+  </section>
+
+  <main class="dashboard" id="dashboard">
+    <div class="empty-state" id="emptyState" hidden>
+      <h2>Your dashboard is ready</h2>
+      <p>Add a web app to get started.</p>
+    </div>
+  </main>
+
+  <footer class="page-footer">
+    Your dashboard layout is saved in this browser. Added app URLs and layout
+    settings are stored locally, not in a shared database.
+  </footer>
+
+  <div
+    class="modal-backdrop"
+    id="addModal"
+    role="dialog"
+    aria-modal="true"
+    aria-labelledby="modalTitle"
+  >
+    <form class="modal" id="addAppForm">
+      <h2 id="modalTitle">Add a web app</h2>
+      <p class="modal-description">
+        Enter the app's name and its full public URL, including https://.
+      </p>
+
+      <div class="form-field">
+        <label for="appName">App name</label>
+        <input
+          id="appName"
+          name="appName"
+          type="text"
+          placeholder="For example, Reading Tracker"
+          maxlength="80"
+          required
+        />
+      </div>
+
+      <div class="form-field">
+        <label for="appUrl">App URL</label>
+        <input
+          id="appUrl"
+          name="appUrl"
+          type="url"
+          placeholder="https://example.com"
+          required
+        />
+      </div>
+
+      <div class="form-error" id="formError" role="alert"></div>
+
+      <div class="modal-actions">
+        <button class="button light" type="button" id="cancelButton">
+          Cancel
+        </button>
+        <button class="button" type="submit">Add to dashboard</button>
+      </div>
+    </form>
+  </div>
+
+  <script>
+    "use strict";
+
+    // --------------------------------------------------
+    // 1. CONFIGURATION
+    // --------------------------------------------------
+
+    const STORAGE_KEY = "superparenting-dashboard-v1";
+
+    // This app is built into the dashboard by default.
+    const PINNED_APP = {
+      id: "techwithlinda-learning-app",
+      name: "My Web App",
+      url: "https://techwithlinda-github-io-2.onrender.com/",
+      x: 20,
+      y: 20,
+      w: 620,
+      h: 460,
+      pinned: true
+    };
+
+    const dashboard = document.getElementById("dashboard");
+    const emptyState = document.getElementById("emptyState");
+    const widgetCount = document.getElementById("widgetCount");
+    const addModal = document.getElementById("addModal");
+    const addAppForm = document.getElementById("addAppForm");
+    const appNameInput = document.getElementById("appName");
+    const appUrlInput = document.getElementById("appUrl");
+    const formError = document.getElementById("formError");
+
+    let widgets = [];
+    let highestZIndex = 1;
+    let dragState = null;
+
+    // --------------------------------------------------
+    // 2. URL VALIDATION
+    // --------------------------------------------------
+
+    function safeUrl(value) {
+      try {
+        const parsed = new URL(value);
+
+        if (parsed.protocol !== "https:" &&
+            parsed.protocol !== "http:") {
+          return null;
+        }
+
+        return parsed.href;
+      } catch {
+        return null;
+      }
+    }
+
+    function normalizedUrl(value) {
+      const safe = safeUrl(value);
+      if (!safe) return "";
+
+      const parsed = new URL(safe);
+      return parsed.origin + parsed.pathname.replace(/\/+$/, "") +
+        parsed.search + parsed.hash;
+    }
+
+    // --------------------------------------------------
+    // 3. SAVE AND RESTORE
+    // --------------------------------------------------
+
+    function saveLayout() {
+      const data = widgets.map(widget => ({
+        id: widget.id,
+        name: widget.name,
+        url: widget.url,
+        x: widget.x,
+        y: widget.y,
+        w: widget.w,
+        h: widget.h,
+        pinned: Boolean(widget.pinned)
+      }));
+
+      try {
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(data));
+      } catch (error) {
+        console.error("Could not save dashboard layout:", error);
+      }
+
+      updateDashboard();
+    }
+
+    function loadLayout() {
+      let saved = [];
+
+      try {
+        const stored = localStorage.getItem(STORAGE_KEY);
+        if (stored) {
+          const parsed = JSON.parse(stored);
+          if (Array.isArray(parsed)) saved = parsed;
+        }
+      } catch (error) {
+        console.warn("Could not read saved dashboard layout:", error);
+      }
+
+      // Keep only valid, usable widget records.
+      widgets = saved
+        .filter(item =>
+          item &&
+          typeof item.id === "string" &&
+          typeof item.name === "string" &&
+          typeof item.url === "string" &&
+          safeUrl(item.url)
+        )
+        .map(item => ({
+          id: item.id,
+          name: item.name.slice(0, 80),
+          url: safeUrl(item.url),
+          x: finiteNumber(item.x, 20, 0, 10000),
+          y: finiteNumber(item.y, 20, 0, 10000),
+          w: finiteNumber(item.w, 620, 290, 2000),
+          h: finiteNumber(item.h, 460, 220, 1600),
+          pinned: Boolean(item.pinned)
+        }));
+
+      // Always include the built-in app, even if it was removed
+      // from old saved data.
+      const existingPinned = widgets.find(item =>
+        normalizedUrl(item.url) === normalizedUrl(PINNED_APP.url)
+      );
+
+      if (existingPinned) {
+        existingPinned.id = PINNED_APP.id;
+        existingPinned.pinned = true;
+        existingPinned.name = PINNED_APP.name;
+      } else {
+        widgets.unshift({ ...PINNED_APP });
+      }
+
+      // Remove duplicate URLs from the saved layout.
+      const seen = new Set();
+      widgets = widgets.filter(item => {
+        const key = normalizedUrl(item.url);
+        if (!key || seen.has(key)) return false;
+        seen.add(key);
+        return true;
+      });
+
+      widgets.forEach(createWidget);
+      saveLayout();
+    }
+
+    function finiteNumber(value, fallback, min, max) {
+      const number = Number(value);
+      if (!Number.isFinite(number)) return fallback;
+      return Math.min(max, Math.max(min, number));
+    }
+
+    // --------------------------------------------------
+    // 4. CREATE A WIDGET
+    // --------------------------------------------------
+
+    function createWidget(item) {
+      const existing = document.getElementById(
+        "widget-" + item.id
+      );
+      if (existing) existing.remove();
+
+      const widget = document.createElement("section");
+      widget.className = "widget";
+      widget.id = "widget-" + item.id;
+      widget.dataset.id = item.id;
+
+      widget.style.left = item.x + "px";
+      widget.style.top = item.y + "px";
+      widget.style.width = item.w + "px";
+      widget.style.height = item.h + "px";
+      widget.style.zIndex = String(++highestZIndex);
+
+      const header = document.createElement("div");
+      header.className = "widget-header";
+
+      const titleWrap = document.createElement("div");
+      titleWrap.className = "widget-title-wrap";
+
+      const dot = document.createElement("span");
+      dot.className = "widget-dot";
+
+      const title = document.createElement("span");
+      title.className = "widget-title";
+      title.textContent = item.name;
+
+      titleWrap.append(dot, title);
+
+      const actions = document.createElement("div");
+      actions.className = "widget-actions";
+
+      const openButton = document.createElement("button");
+      openButton.className = "icon-button";
+      openButton.type = "button";
+      openButton.textContent = "Open ↗";
+      openButton.title = "Open app in a new tab";
+      openButton.addEventListener("click", event => {
+        event.stopPropagation();
+        window.open(item.url, "_blank", "noopener,noreferrer");
+      });
+
+      actions.append(openButton);
+
+      if (!item.pinned) {
+        const removeButton = document.createElement("button");
+        removeButton.className = "icon-button remove";
+        removeButton.type = "button";
+        removeButton.textContent = "×";
+        removeButton.title = "Remove this widget";
+
+        removeButton.addEventListener("click", event => {
+          event.stopPropagation();
+
+          widgets = widgets.filter(w => w.id !== item.id);
+          widget.remove();
+          saveLayout();
+        });
+
+        actions.append(removeButton);
+      }
+
+      header.append(titleWrap, actions);
+
+      const frame = document.createElement("iframe");
+      frame.src = item.url;
+      frame.title = item.name;
+      frame.loading = "lazy";
+      frame.referrerPolicy = "strict-origin-when-cross-origin";
+
+      // These permissions support common app functionality.
+      // They do not override a site's anti-embedding headers.
+      frame.setAttribute(
+        "sandbox",
+        "allow-scripts allow-forms allow-same-origin allow-popups"
+      );
+
+      const footer = document.createElement("div");
+      footer.className = "widget-footer";
+      footer.textContent = item.pinned
+        ? "Built-in app • Resize this widget or open it in a new tab"
+        : "App widget • Resize this widget or open it in a new tab";
+
+      widget.append(header, frame, footer);
+      dashboard.appendChild(widget);
+
+      // Bring the widget to the front when clicked.
+      widget.addEventListener("pointerdown", () => {
+        widget.style.zIndex = String(++highestZIndex);
+      });
+
+      // Drag widgets by the header, except when using a button.
+      header.addEventListener("pointerdown", event => {
+        if (event.target.closest("button")) return;
+        if (event.button !== 0) return;
+
+        const rect = widget.getBoundingClientRect();
+        const stageRect = dashboard.getBoundingClientRect();
+
+        dragState = {
+          widget,
+          item,
+          pointerId: event.pointerId,
+          startX: event.clientX,
+          startY: event.clientY,
+          originalX: rect.left - stageRect.left + dashboard.scrollLeft,
+          originalY: rect.top - stageRect.top + dashboard.scrollTop
+        };
+
+        header.setPointerCapture(event.pointerId);
+        event.preventDefault();
+      });
+
+      header.addEventListener("pointermove", event => {
+        if (!dragState ||
+            dragState.widget !== widget ||
+            dragState.pointerId !== event.pointerId) {
+          return;
+        }
+
+        const dx = event.clientX - dragState.startX;
+        const dy = event.clientY - dragState.startY;
+
+        const newX = Math.max(0, dragState.originalX + dx);
+        const newY = Math.max(0, dragState.originalY + dy);
+
+        widget.style.left = newX + "px";
+        widget.style.top = newY + "px";
+
+        item.x = newX;
+        item.y = newY;
+
+        updateStageHeight();
+      });
+
+      function finishDrag(event) {
+        if (dragState &&
+            dragState.widget === widget &&
+            dragState.pointerId === event.pointerId) {
+          dragState = null;
+          readWidgetSize(item, widget);
+          saveLayout();
+        }
+      }
+
+      header.addEventListener("pointerup", finishDrag);
+      header.addEventListener("pointercancel", finishDrag);
+
+      // Native CSS resizing: persist the final size after resizing.
+      widget.addEventListener("pointerup", () => {
+        window.setTimeout(() => {
+          readWidgetSize(item, widget);
+          saveLayout();
+        }, 50);
+      });
+
+      updateDashboard();
+    }
+
+    function readWidgetSize(item, element) {
+      const stageRect = dashboard.getBoundingClientRect();
+      const rect = element.getBoundingClientRect();
+
+      item.x = Math.max(
+        0,
+        rect.left - stageRect.left + dashboard.scrollLeft
+      );
+      item.y = Math.max(
+        0,
+        rect.top - stageRect.top + dashboard.scrollTop
+      );
+      item.w = Math.max(290, element.offsetWidth);
+      item.h = Math.max(220, element.offsetHeight);
+    }
+
+    // --------------------------------------------------
+    // 5. DASHBOARD STATUS AND STAGE SIZE
+    // --------------------------------------------------
+
+    function updateDashboard() {
+      widgetCount.textContent =
+        widgets.length + (widgets.length === 1 ? " app" : " apps");
+
+      emptyState.hidden = widgets.length > 0;
+      updateStageHeight();
+    }
+
+    function updateStageHeight() {
+      let maxBottom = 850;
+
+      widgets.forEach(item => {
+        maxBottom = Math.max(maxBottom, item.y + item.h + 30);
+      });
+
+      dashboard.style.minHeight = maxBottom + "px";
+    }
+
+    // --------------------------------------------------
+    // 6. ADD AN APP
+    // --------------------------------------------------
+
+    function showAddModal() {
+      formError.style.display = "none";
+      addAppForm.reset();
+      addModal.classList.add("open");
+      appNameInput.focus();
+    }
+
+    function closeAddModal() {
+      addModal.classList.remove("open");
+    }
+
+    document.getElementById("addAppButton").addEventListener(
+      "click",
+      showAddModal
+    );
+
+    document.getElementById("cancelButton").addEventListener(
+      "click",
+      closeAddModal
+    );
+
+    addModal.addEventListener("click", event => {
+      if (event.target === addModal) closeAddModal();
+    });
+
+    document.addEventListener("keydown", event => {
+      if (event.key === "Escape") closeAddModal();
+    });
+
+    addAppForm.addEventListener("submit", event => {
+      event.preventDefault();
+
+      const name = appNameInput.value.trim();
+      const url = safeUrl(appUrlInput.value.trim());
+
+      if (!name) {
+        showFormError("Please enter an app name.");
+        return;
+      }
+
+      if (!url) {
+        showFormError("Please enter a valid http:// or https:// URL.");
+        return;
+      }
+
+      const duplicate = widgets.some(item =>
+        normalizedUrl(item.url) === normalizedUrl(url)
+      );
+
+      if (duplicate) {
+        showFormError("This app is already on your dashboard.");
+        return;
+      }
+
+      const offset = widgets.length * 28;
+
+      const newWidget = {
+        id: "app-" + createId(),
+        name: name.slice(0, 80),
+        url,
+        x: 30 + offset,
+        y: 30 + offset,
+        w: 520,
+        h: 400,
+        pinned: false
+      };
+
+      widgets.push(newWidget);
+      createWidget(newWidget);
+      saveLayout();
+      closeAddModal();
+    });
+
+    function showFormError(message) {
+      formError.textContent = message;
+      formError.style.display = "block";
+    }
+
+    function createId() {
+      if (window.crypto && window.crypto.randomUUID) {
+        return window.crypto.randomUUID();
+      }
+
+      return Date.now().toString(36) +
+        Math.random().toString(36).slice(2, 10);
+    }
+
+    // --------------------------------------------------
+    // 7. SAVE AND RESET BUTTONS
+    // --------------------------------------------------
+
+    document.getElementById("saveButton").addEventListener(
+      "click",
+      () => {
+        widgets.forEach(item => {
+          const element = document.getElementById("widget-" + item.id);
+          if (element) readWidgetSize(item, element);
+        });
+
+        saveLayout();
+
+        const button = document.getElementById("saveButton");
+        const previousText = button.textContent;
+        button.textContent = "Saved ✓";
+
+        window.setTimeout(() => {
+          button.textContent = previousText;
+        }, 1400);
+      }
+    );
+
+    document.getElementById("resetButton").addEventListener(
+      "click",
+      () => {
+        const confirmed = window.confirm(
+          "Reset the dashboard to the built-in app? " +
+          "Other app widgets and their saved positions will be removed."
+        );
+
+        if (!confirmed) return;
+
+        widgets = [{ ...PINNED_APP }];
+        dashboard.querySelectorAll(".widget").forEach(element =>
+          element.remove()
+        );
+
+        createWidget(widgets[0]);
+        saveLayout();
+      }
+    );
+
+    // --------------------------------------------------
+    // 8. START THE DASHBOARD
+    // --------------------------------------------------
+
+    loadLayout();
+  </script>
+</body>
+</html>
